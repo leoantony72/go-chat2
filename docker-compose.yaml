@@ -1,0 +1,18 @@
+version: "3.6"
+
+services:
+  cassandra:
+    container_name: testcass
+    image: cassandra:4.0
+    ports:
+      - 9042:9042
+    volumes:
+      - ~/apps/cassandra:/var/lib/cassandra
+    networks:
+      - default
+    environment:
+      - CASSANDRA_CLUSTER_NAME=mycluster
+
+networks:
+  default:
+    driver: bridge
