@@ -12,6 +12,7 @@ func StartServer() {
 	router := gin.Default()
 	// config.NewWebSocketServer()
 	database.SetupDBconnection()
+	go config.Send()
 
 	router.GET("/")
 	router.GET("/chat", test)                      //websocket_connection
@@ -22,8 +23,6 @@ func StartServer() {
 	router.Run("localhost:6300")
 }
 func test(c *gin.Context) {
-
-	go config.Echo()
 	// ctx := context.Background()
 	config.Wshandler(c.Writer, c.Request, c)
 

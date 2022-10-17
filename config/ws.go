@@ -3,6 +3,7 @@ package config
 import (
 	// "fmt"
 
+	"encoding/json"
 	"fmt"
 	"log"
 	"time"
@@ -20,6 +21,14 @@ import (
 // 	Id   string
 // 	Send chan []byte
 // }
+
+type Message struct {
+	Message   string `json:"msg"`
+	Sender    string
+	Receiver  string `json:"receiver,omitempty"`
+	Group     bool   `json:"group"`
+	GroupName string `json:"group_name,omitempty"`
+}
 
 var clients = make(map[string]*websocket.Conn)
 
@@ -60,10 +69,30 @@ func NewClient(ID string, conn *websocket.Conn) {
 	// fmt.Println(ws.users[ID].Id)
 	clients[ID].WriteMessage(websocket.TextMessage, []byte("hello"))
 
+	for {
+		_, msg, errCon := conn.ReadMessage()
+
+		if errCon != nil {
+			log.Println("Read Error:", errCon)
+			break
+		}
+		var r Message
+		if err := json.Unmarshal(msg, &r); err != nil {
+
+			log.Println("Error: " + err.Error())
+			return
+		}
+		r.Sender = ID
+
+		//send message to redis queue
+
+		fmt.Println(r)
+	}
+
 	// fmt.Println(ws)
 }
 
-func Echo() {
+func Send() {
 	for {
 		time.Sleep(time.Second)
 		// ws.users["2FhfPK3IvyicuLq9MxfuGFEK2eo"].conn.WriteMessage(websocket.TextMessage, []byte("hello"))
@@ -75,6 +104,7 @@ func Echo() {
 				log.Printf("Websocket error: %s", err)
 				client.Close()
 				delete(clients, key)
+				break
 			}
 		}
 	}
