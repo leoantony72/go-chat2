@@ -1,26 +1,20 @@
 package config
 
 import (
-	// "fmt"
-
 	"encoding/json"
 	"fmt"
+	"go/chat/utils"
 	"log"
-	"time"
-
-	// "go/chat/utils"
-	// "log"
 	"net/http"
 
+	// "time"
+
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v9"
 	"github.com/gorilla/websocket"
 )
 
-// type User struct {
-// 	conn *websocket.Conn
-// 	Id   string
-// 	Send chan []byte
-// }
+var broadcast = make(chan *redis.Message)
 
 type Message struct {
 	Message   string `json:"msg"`
@@ -84,28 +78,45 @@ func NewClient(ID string, conn *websocket.Conn) {
 		}
 		r.Sender = ID
 
-		//send message to redis queue
+		//find the server inwhich the user is connected
 
-		fmt.Println(r)
+		//send message to redis queue
+		JsonData, err := json.Marshal(r)
+		utils.CheckErr(err)
+		Conn.Publish(Ctx, "server1", JsonData)
+		// fmt.Println(r)
 	}
 
 	// fmt.Println(ws)
 }
 
 func Send() {
+	// for {
+	// 	time.Sleep(time.Second)
+	// 	// ws.users["2FhfPK3IvyicuLq9MxfuGFEK2eo"].conn.WriteMessage(websocket.TextMessage, []byte("hello"))
+	// 	// // send to every client that is currently connected
+	// 	for key, client := range clients {
+	// 		fmt.Println(key)
+	// 		err := client.WriteMessage(websocket.TextMessage, []byte("hello"))
+	// 		if err != nil {
+	// 			log.Printf("Websocket error: %s", err)
+	// 			client.Close()
+	// 			delete(clients, key)
+	// 			break
+	// 		}
+	// 	}
+	// }
+
 	for {
-		time.Sleep(time.Second)
-		// ws.users["2FhfPK3IvyicuLq9MxfuGFEK2eo"].conn.WriteMessage(websocket.TextMessage, []byte("hello"))
-		// // send to every client that is currently connected
-		for key, client := range clients {
-			fmt.Println(key)
-			err := client.WriteMessage(websocket.TextMessage, []byte("hello"))
-			if err != nil {
-				log.Printf("Websocket error: %s", err)
-				client.Close()
-				delete(clients, key)
-				break
-			}
+		msg := <-broadcast
+		message := Message{}
+		if err := json.Unmarshal([]byte(msg.Payload), &message); err != nil {
+			panic(err)
 		}
+		JsonData, err := json.Marshal(message)
+		fmt.Printf("message from echo : %v", msg.Payload)
+		utils.CheckErr(err)
+		client := clients[message.Receiver]
+		client.WriteMessage(websocket.TextMessage, []byte(JsonData))
 	}
 }

@@ -12,6 +12,8 @@ func StartServer() {
 	router := gin.Default()
 	// config.NewWebSocketServer()
 	database.SetupDBconnection()
+	config.NPool()
+	go config.PubSub()
 	go config.Send()
 
 	router.GET("/")

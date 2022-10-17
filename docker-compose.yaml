@@ -13,6 +13,14 @@ services:
     environment:
       - CASSANDRA_CLUSTER_NAME=mycluster
 
+  redis:
+    container_name: redis_chat 
+    image: 'redis:7.0.2'
+    ports:
+      - "6379:6379" 
+    networks:
+      - default  
+
 networks:
   default:
     driver: bridge

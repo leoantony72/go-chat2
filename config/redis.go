@@ -1,16 +1,36 @@
 package config
 
 import (
-	"log"
+	"context"
+	"fmt"
 
-	"github.com/gomodule/redigo/redis"
+	"github.com/go-redis/redis/v9"
 )
 
-func NPool() redis.Conn {
-	conn, err := redis.Dial("tcp", "localhost:6379")
-	if err != nil {
-		log.Panic(err)
-	}
+var Ctx = context.Background()
+var Conn redis.Client
 
-	return conn
+func NPool() {
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
+
+	Conn = *rdb
+}
+
+func PubSub() {
+	subscriber := Conn.Subscribe(Ctx, "server1")
+	for {
+		msg, err := subscriber.ReceiveMessage(Ctx)
+		if err != nil {
+			panic(err)
+		}
+
+		fmt.Printf("message from pub/sub : %v", msg.Payload)
+		broadcast <- msg
+
+		// ...
+	}
 }
