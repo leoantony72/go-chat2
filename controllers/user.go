@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"fmt"
-	"go/chat/database"
+	"go/chat/model"
 	"go/chat/utils"
 
 	"github.com/gin-gonic/gin"
@@ -25,9 +25,7 @@ func CreateUser(c *gin.Context) {
 	}
 
 	Id := utils.GenerateKsuid()
-	query := `INSERT INTO users (id,username) VALUES(?,?)`
-
-	database.ExecuteQuery(query, Id, user.Username)
+	model.CreateUser(Id, user.Username)
 
 	c.JSON(201, gin.H{"message": "User Created"})
 }
@@ -38,10 +36,8 @@ func LoginUser(c *gin.Context) {
 	if err := c.ShouldBindJSON(&user); err != nil {
 		fmt.Println(err)
 	}
-	query := `SELECT id,username FROM users WHERE id = ?`
-
 	//check the database for id
-	ID, Username := database.CheckUserExist(query, user.Id)
+	ID, Username := model.CheckUserExist(user.Id)
 
 	//if exist return a cookie containing the ID
 	if ID == "" {

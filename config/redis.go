@@ -2,7 +2,8 @@ package config
 
 import (
 	"context"
-	"fmt"
+	// "fmt"
+	"go/chat/utils"
 
 	"github.com/go-redis/redis/v9"
 )
@@ -21,14 +22,15 @@ func NPool() {
 }
 
 func PubSub() {
-	subscriber := Conn.Subscribe(Ctx, "server1")
+	SERVERID := utils.EnvVariable("SERVERID")
+	subscriber := Conn.Subscribe(Ctx, SERVERID)
 	for {
 		msg, err := subscriber.ReceiveMessage(Ctx)
 		if err != nil {
 			panic(err)
 		}
 
-		fmt.Printf("message from pub/sub : %v", msg.Payload)
+		// fmt.Printf("message from pub/sub : %v", msg.Payload)
 		broadcast <- msg
 
 		// ...

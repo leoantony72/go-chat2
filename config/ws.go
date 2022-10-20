@@ -3,20 +3,21 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"go/chat/model"
 	"go/chat/utils"
 	"log"
 	"net/http"
-
-	// "time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v9"
 	"github.com/gorilla/websocket"
 )
 
+var SERVERID string = utils.EnvVariable("SERVERID")
 var broadcast = make(chan *redis.Message)
 
 type Message struct {
+	Id        string
 	Message   string `json:"msg"`
 	Sender    string
 	Receiver  string `json:"receiver,omitempty"`
@@ -31,43 +32,26 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-// func NewWebSocketServer() *ws {
-// 	return &ws{
-// 		users: make(map[string]User),
-// 	}
-// }
-
 func Wshandler(w http.ResponseWriter, r *http.Request, c *gin.Context) {
-	ID := c.Query("id")
-	// utils.CheckErr(err)
+	userID := c.Query("id")
 	upgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Printf("Failed to set websocket upgrade: %+v", err)
 		return
 	}
-	NewClient(ID, conn)
-
-	fmt.Println(clients)
+	NewClient(userID, conn)
+	model.SetUser(userID, SERVERID)
+	ReceiveMessage(conn, userID)
 
 }
-
-func NewClient(ID string, conn *websocket.Conn) {
-	// user := &User{
-	// 	Id:   ID,
-	// 	conn: conn,
-	// 	Send: make(chan []byte),
-	// }
-	clients[ID] = conn
-	// fmt.Println(ws.users[ID])
-	// fmt.Println(ws.users[ID].Id)
-	clients[ID].WriteMessage(websocket.TextMessage, []byte("hello"))
-
+func ReceiveMessage(conn *websocket.Conn, userID string) {
 	for {
 		_, msg, errCon := conn.ReadMessage()
 
 		if errCon != nil {
 			log.Println("Read Error:", errCon)
+			conn.Close()
 			break
 		}
 		var r Message
@@ -76,37 +60,25 @@ func NewClient(ID string, conn *websocket.Conn) {
 			log.Println("Error: " + err.Error())
 			return
 		}
-		r.Sender = ID
+		r.Id = utils.GenerateKsuid()
+		r.Sender = userID
 
-		//find the server inwhich the user is connected
-
+		//find the server inwhich the receiver is connected
+		serverId := model.GetServerId(r.Receiver)
 		//send message to redis queue
 		JsonData, err := json.Marshal(r)
 		utils.CheckErr(err)
-		Conn.Publish(Ctx, "server1", JsonData)
-		// fmt.Println(r)
+		model.SaveMessage(r.Id, r.Message, r.Sender, r.Receiver, r.Group, r.GroupName)
+		Conn.Publish(Ctx, serverId, JsonData)
 	}
+}
 
-	// fmt.Println(ws)
+func NewClient(ID string, conn *websocket.Conn) {
+	clients[ID] = conn
+	clients[ID].WriteMessage(websocket.TextMessage, []byte("ok"))
 }
 
 func Send() {
-	// for {
-	// 	time.Sleep(time.Second)
-	// 	// ws.users["2FhfPK3IvyicuLq9MxfuGFEK2eo"].conn.WriteMessage(websocket.TextMessage, []byte("hello"))
-	// 	// // send to every client that is currently connected
-	// 	for key, client := range clients {
-	// 		fmt.Println(key)
-	// 		err := client.WriteMessage(websocket.TextMessage, []byte("hello"))
-	// 		if err != nil {
-	// 			log.Printf("Websocket error: %s", err)
-	// 			client.Close()
-	// 			delete(clients, key)
-	// 			break
-	// 		}
-	// 	}
-	// }
-
 	for {
 		msg := <-broadcast
 		message := Message{}
@@ -114,9 +86,11 @@ func Send() {
 			panic(err)
 		}
 		JsonData, err := json.Marshal(message)
-		fmt.Printf("message from echo : %v", msg.Payload)
 		utils.CheckErr(err)
 		client := clients[message.Receiver]
-		client.WriteMessage(websocket.TextMessage, []byte(JsonData))
+		err = client.WriteMessage(websocket.TextMessage, []byte(JsonData))
+		if err != nil {
+			client.Close()
+		}
 	}
 }

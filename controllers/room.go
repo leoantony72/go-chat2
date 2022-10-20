@@ -5,7 +5,7 @@ import (
 	// "fmt"
 
 	"fmt"
-	"go/chat/database"
+	"go/chat/model"
 	"go/chat/utils"
 
 	"github.com/gin-gonic/gin"
@@ -24,10 +24,7 @@ func Createroom(c *gin.Context) {
 	}
 
 	id := utils.GenerateKsuid()
-	query := `INSERT INTO room (id,room_name) VALUES (?,?)`
-
-	database.ExecuteQuery(query, id, newRoom.Name)
-
+	model.CreateRoom(id, newRoom.Name)
 	c.JSON(200, gin.H{"mess": "done"})
 }
 
@@ -38,9 +35,7 @@ func JoinRoom(c *gin.Context) {
 		fmt.Println(err)
 	}
 
-	query := `INSERT INTO room_members (room_id,user_id) VALUES (?,?)`
-
-	database.ExecuteQuery(query, newRoom.Id, newRoom.User)
+	model.JoinRoom(newRoom.Id, newRoom.User)
 	c.JSON(200, gin.H{"mess": "Room Joined"})
 
 }
