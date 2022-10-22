@@ -9,7 +9,7 @@ func CreateUser(userId string, userName string) {
 }
 
 func CheckUserExist(userId string) (string, string) {
-	query := `SELECT id,username FROM users WHERE id = ?`
+	query := `SELECT id,username FROM users WHERE username = ?`
 
 	//check the database for id
 	ID, Username := database.CheckUserExist(query, userId)

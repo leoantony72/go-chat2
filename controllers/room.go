@@ -14,7 +14,7 @@ import (
 type Room struct {
 	Id   string `json:"room_id"`
 	Name string `json:"name"`
-	User string `json:"user_id"`
+	User string `json:"user"`
 }
 
 func Createroom(c *gin.Context) {
@@ -25,7 +25,7 @@ func Createroom(c *gin.Context) {
 
 	id := utils.GenerateKsuid()
 	model.CreateRoom(id, newRoom.Name)
-	c.JSON(200, gin.H{"mess": "done"})
+	c.JSON(200, gin.H{"message": "done"})
 }
 
 func JoinRoom(c *gin.Context) {
@@ -35,7 +35,7 @@ func JoinRoom(c *gin.Context) {
 		fmt.Println(err)
 	}
 
-	model.JoinRoom(newRoom.Id, newRoom.User)
+	model.JoinRoom(newRoom.Name, newRoom.User)
 	c.JSON(200, gin.H{"mess": "Room Joined"})
 
 }

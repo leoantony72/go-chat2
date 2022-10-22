@@ -1,7 +1,7 @@
 package database
 
 import (
-	"fmt"
+	// "fmt"
 
 	"github.com/gocql/gocql"
 )
@@ -39,8 +39,8 @@ func CheckUserExist(query string, id string) (string, string) {
 		Username = m["username"].(string)
 		m = map[string]interface{}{}
 	}
-	fmt.Println(ID)
-	fmt.Println(Username)
+	// fmt.Println(ID)
+	// fmt.Println(Username)
 
 	return ID, Username
 }
