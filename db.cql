@@ -29,13 +29,22 @@ CREATE TABLE chat.user_mapping(
 );
 -- CREATE INDEX tb_user_mapping_userid ON chat.user_mapping (username);
 
-CREATE TABLE chat.message(
-    sender    VARCHAR PRIMARY KEY,
+CREATE TABLE chat.private_chat(
+    id        VARCHAR PRIMARY KEY,
+    sender    VARCHAR,
     receiver  VARCHAR ,
     msg       TEXT,
-    isgroup   BOOLEAN,
-    group     VARCHAR  
+    timestamp timestamp
 );
--- CREATE INDEX tb_message_receiver ON chat.room_members (room_name);
+CREATE INDEX tb_private_chat_TIMESTAMP ON chat.private_chat(timestamp); 
+CREATE INDEX tb_private_chat_SENDER ON chat.private_chat(sender); 
 
-
+CREATE TABLE chat.group_chat(
+    id        VARCHAR PRIMARY KEY,
+    sender    VARCHAR,
+    msg       TEXT,
+    group     VARCHAR,
+    timestamp timestamp
+);
+CREATE INDEX tb_group_chat_TIMSTAMP ON chat.group_chat(timestamp); 
+CREATE INDEX tb_group_chat_SENDER ON chat.group_chat(sender); 

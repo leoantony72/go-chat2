@@ -76,7 +76,6 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 		err := r.Validate()
 		if err != nil {
 			b, _ := json.Marshal(err)
-			// fmt.Println(string(b))
 			conn.WriteMessage(websocket.TextMessage, b)
 			continue
 		}
@@ -87,8 +86,7 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 				@fetch the members connected servers
 				@send message topic of the servers
 			*/
-
-			model.SaveMessage(r.Message, r.Sender, r.Receiver, r.Group, r.GroupName)
+			model.SaveMessageGroupChat(r.Id, r.Message, r.Sender, r.GroupName)
 			members := model.GetMembers(r.GroupName)
 			servers := []string{}
 			for _, mem := range members {
@@ -102,12 +100,12 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 			fmt.Println(servers)
 
 		}
+		model.SaveMessagePrivateChat(r.Id, r.Message, r.Sender, r.Receiver)
 		//find the server inwhich the receiver is connected
 		serverId := model.GetServerId(r.Receiver)
 		//send message to redis queue
 		JsonData, err := json.Marshal(r)
 		utils.CheckErr(err)
-		model.SaveMessage(r.Message, r.Sender, r.Receiver, r.Group, r.GroupName)
 		Conn.Publish(Ctx, serverId, JsonData)
 	}
 	cm := websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Connection Closing")
@@ -160,12 +158,12 @@ func (m Message) Validate() error {
 			// validation.Empty.Error("msg field is required"),
 			// validation.NotNil.Error("msg field is required"),
 		),
-		validation.Field(&m.Group),
-		// validation.Required.Error("is_group Field is required"),
-		// validation.NotNil.Error("is_group field cannot be empty"),
+		validation.Field(&m.Group,
+			// validation.Required.Error("is_group Field is required"),
+			validation.NotNil.Error("is_group field cannot be empty"),
 		// validation.Empty.Error("msg field is required"),
 		// validation.NotNil.Error("msg field is required"),
-		// ),
+		),
 		validation.Field(&m.GroupName,
 			validation.Length(1, 25).Error("character length should be between 1 and 25"),
 			validation.When(m.Group, validation.Required.Error("Group_name is required")),
@@ -185,8 +183,8 @@ func Closews(msg string, conn *websocket.Conn) {
 	conn.Close()
 }
 func MsgFailed(conn *websocket.Conn) {
-	msg := "Failed to send message"
-	if err := conn.WriteMessage(websocket.CloseMessage, []byte(msg)); err != nil {
+	msg := `{"message":"Failed to send message"}`
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
 		utils.CheckErr(err)
 	}
 }

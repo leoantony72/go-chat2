@@ -19,13 +19,14 @@ func SetupDBconnection() {
 	Connection.Session, _ = cluster.CreateSession()
 }
 
-func ExecuteQuery(query string, args ...interface{}) {
+func ExecuteQuery(query string, args ...interface{}) error {
 	// fmt.Println(query, args)
-	Connection.Session.Query(query, args...).Exec() // connection.session.Close()
+	err := Connection.Session.Query(query, args...).Exec() // connection.session.Close()
+	return err
 }
 
-func SelectQuery(query string,args ...interface{})*gocql.Query{
-	data := Connection.Session.Query(query,args...)
+func SelectQuery(query string, args ...interface{}) *gocql.Query {
+	data := Connection.Session.Query(query, args...)
 	return data
 }
 
