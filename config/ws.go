@@ -18,12 +18,14 @@ var SERVERID string = utils.EnvVariable("SERVERID")
 var broadcast = make(chan *redis.Message)
 
 type Message struct {
-	Id        string
-	Message   string `json:"msg"`
-	Sender    string
-	Receiver  string `json:"receiver,omitempty"`
-	Group     bool   `json:"is_group"`
-	GroupName string `json:"group_name,omitempty"`
+	Id           string
+	Message      string   `json:"msg"`
+	Sender       string   `json:"sender"`
+	Receiver     string   `json:"receiver,omitempty"`
+	Group        bool     `json:"is_group"`
+	GroupName    string   `json:"group_name,omitempty"`
+	GroupMembers []string `json:",omitempty"`
+	ServerId     string   `json:",omitempty"`
 }
 type ErrorMsg struct {
 	Field   string `json:"field"`
@@ -47,13 +49,11 @@ func Wshandler(w http.ResponseWriter, r *http.Request, c *gin.Context) {
 	}
 	_, username := model.CheckUserExist(userID)
 	if username == "" {
-		fmt.Printf("Username not found")
 		Closews("Authentication failed - invalid username", conn)
 		return
 	}
 
 	NewClient(userID, conn)
-	model.SetUser(userID, SERVERID)
 	ReceiveMessage(conn, userID)
 
 }
@@ -83,21 +83,27 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 			/*
 				@send the message to the db
 				@fetch the members of the group
-				@fetch the members connected servers
-				@send message topic of the servers
+				@fetch the members connected server
+				@send message to the topic of the servers
 			*/
 			model.SaveMessageGroupChat(r.Id, r.Message, r.Sender, r.GroupName)
 			members := model.GetMembers(r.GroupName)
-			servers := []string{}
-			for _, mem := range members {
-				serverId := model.GetServerId(mem)
-				fmt.Println(serverId)
-				added := isAdded(servers, serverId)
-				if !added {
-					servers = append(servers, serverId)
-				}
+			// servers := []string{}
+			servers := make(map[string][]string)
+			for _, member := range members {
+				serverId := model.GetServerId(member)
+				servers[serverId] = append(servers[serverId], member)
 			}
-			fmt.Println(servers)
+			// fmt.Println(servers)
+			for key, element := range servers {
+				r.ServerId = key
+				r.GroupMembers = element
+				JsonData, err := json.Marshal(r)
+				utils.CheckErr(err)
+				Conn.Publish(Ctx, key, JsonData)
+
+			}
+			continue
 
 		}
 		model.SaveMessagePrivateChat(r.Id, r.Message, r.Sender, r.Receiver)
@@ -105,6 +111,7 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 		serverId := model.GetServerId(r.Receiver)
 		//send message to redis queue
 		JsonData, err := json.Marshal(r)
+
 		utils.CheckErr(err)
 		Conn.Publish(Ctx, serverId, JsonData)
 	}
@@ -116,9 +123,10 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 
 }
 
-func NewClient(ID string, conn *websocket.Conn) {
-	clients[ID] = conn
-	clients[ID].WriteMessage(websocket.TextMessage, []byte("ok"))
+func NewClient(userId string, conn *websocket.Conn) {
+	model.SetUser(userId, SERVERID)
+	clients[userId] = conn
+	clients[userId].WriteMessage(websocket.TextMessage, []byte("ok"))
 }
 
 func Send() {
@@ -128,24 +136,62 @@ func Send() {
 		if err := json.Unmarshal([]byte(msg.Payload), &message); err != nil {
 			panic(err)
 		}
-		JsonData, err := json.Marshal(message)
-		utils.CheckErr(err)
+		if message.Group {
+			groupMessage(message)
+			continue
+		}
 		client := clients[message.Receiver]
 		if client == nil {
-			/*
-				Notification service handles the
-				message when the reciever is offline
-				or something unexpected happens
-			*/
 			fmt.Println("Receiver offline")
 			continue
 		}
-		fmt.Println("here")
+		privateMessage(message, client)
+	}
+}
+
+func groupMessage(message Message) {
+	jsonRes := Message{}
+	for _, member := range message.GroupMembers {
+		client := clients[member]
+		if client == nil {
+			fmt.Println("Receiver offline group")
+			continue
+		}
+		jsonRes.Id = message.Id
+		jsonRes.Sender = message.Sender
+		jsonRes.Message = message.Message
+		jsonRes.Group = message.Group
+		jsonRes.GroupName = message.GroupName
+		JsonData, err := json.Marshal(jsonRes)
+		utils.CheckErr(err)
 		err = client.WriteMessage(websocket.TextMessage, []byte(JsonData))
 		if err != nil {
 			delete(clients, message.Receiver)
 			client.Close()
 		}
+	}
+}
+func privateMessage(message Message, client *websocket.Conn) {
+	JsonData, err := json.Marshal(message)
+	utils.CheckErr(err)
+	err = client.WriteMessage(websocket.TextMessage, []byte(JsonData))
+	if err != nil {
+		delete(clients, message.Receiver)
+		client.Close()
+	}
+}
+
+func Closews(msg string, conn *websocket.Conn) {
+	cm := websocket.FormatCloseMessage(websocket.CloseNormalClosure, msg)
+	if err := conn.WriteMessage(websocket.CloseMessage, cm); err != nil {
+		utils.CheckErr(err)
+	}
+	conn.Close()
+}
+func MsgFailed(conn *websocket.Conn) {
+	msg := `{"message":"Failed to send message"}`
+	if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
+		utils.CheckErr(err)
 	}
 }
 
@@ -169,31 +215,8 @@ func (m Message) Validate() error {
 			validation.When(m.Group, validation.Required.Error("Group_name is required")),
 		),
 		validation.Field(&m.Receiver,
-			validation.When(!m.Group, validation.Required.Error("reciever Field is required"), validation.NotNil.Error("receiver field cannot be empty")).Else(validation.Empty),
+			validation.When(m.Group, validation.Empty).Else(validation.Required.Error("reciever Field is required"), validation.NotNil.Error("receiver field cannot be empty")),
 		),
 	)
 
-}
-
-func Closews(msg string, conn *websocket.Conn) {
-	cm := websocket.FormatCloseMessage(websocket.CloseNormalClosure, msg)
-	if err := conn.WriteMessage(websocket.CloseMessage, cm); err != nil {
-		utils.CheckErr(err)
-	}
-	conn.Close()
-}
-func MsgFailed(conn *websocket.Conn) {
-	msg := `{"message":"Failed to send message"}`
-	if err := conn.WriteMessage(websocket.TextMessage, []byte(msg)); err != nil {
-		utils.CheckErr(err)
-	}
-}
-func isAdded(s []string, str string) bool {
-	for _, v := range s {
-		if v == str {
-			return true
-		}
-	}
-
-	return false
 }

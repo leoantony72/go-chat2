@@ -2,8 +2,6 @@
 package controllers
 
 import (
-	// "fmt"
-
 	"fmt"
 	"go/chat/model"
 	"go/chat/utils"

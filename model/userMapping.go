@@ -1,10 +1,14 @@
 package model
 
-import "go/chat/database"
+import (
+	"go/chat/database"
+	"go/chat/utils"
+)
 
 func SetUser(userID string, SERVERID string) {
 	query := "INSERT INTO user_mapping(username,server_id)VALUES(?,?)"
-	database.ExecuteQuery(query, userID, SERVERID)
+	err:=database.ExecuteQuery(query, userID, SERVERID)
+	utils.CheckErr(err)
 }
 
 func GetServerId(userID string) string {

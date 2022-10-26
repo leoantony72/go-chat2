@@ -1,7 +1,7 @@
 package database
 
 import (
-	// "fmt"
+	"fmt"
 
 	"github.com/gocql/gocql"
 )
@@ -16,11 +16,14 @@ func SetupDBconnection() {
 	cluster := gocql.NewCluster("127.0.0.1:9042")
 	cluster.Keyspace = "chat"
 	cluster.Consistency = gocql.Quorum
-	Connection.Session, _ = cluster.CreateSession()
+	Cs, err := cluster.CreateSession()
+	Connection.Session = Cs
+	if err != nil {
+		fmt.Println("database error")
+	}
 }
 
 func ExecuteQuery(query string, args ...interface{}) error {
-	// fmt.Println(query, args)
 	err := Connection.Session.Query(query, args...).Exec() // connection.session.Close()
 	return err
 }
@@ -40,8 +43,6 @@ func CheckUserExist(query string, id string) (string, string) {
 		Username = m["username"].(string)
 		m = map[string]interface{}{}
 	}
-	// fmt.Println(ID)
-	// fmt.Println(Username)
 
 	return ID, Username
 }

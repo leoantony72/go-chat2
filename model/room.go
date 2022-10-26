@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"go/chat/database"
 )
 
@@ -21,10 +20,8 @@ func GetMembers(groupName string) []string {
 	query := "SELECT username FROM room_members WHERE room_name = ?"
 	data := database.Connection.Session.Query(query, groupName).Iter()
 	for data.Scan(&username) {
-		fmt.Println("Tweet:", username)
 		members = append(members, username)
 	}
-	fmt.Println(members)
-	// fmt.Println(members)
+
 	return members
 }
