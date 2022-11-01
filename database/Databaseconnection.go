@@ -13,13 +13,14 @@ type DBconnection struct {
 var Connection DBconnection
 
 func SetupDBconnection() {
-	cluster := gocql.NewCluster("127.0.0.1:9042")
+	cluster := gocql.NewCluster("cassandra:9042")
 	cluster.Keyspace = "chat"
 	cluster.Consistency = gocql.Quorum
 	Cs, err := cluster.CreateSession()
 	Connection.Session = Cs
 	if err != nil {
 		fmt.Println("database error")
+		panic(err)
 	}
 }
 

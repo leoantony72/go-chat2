@@ -6,21 +6,73 @@ services:
     image: cassandra:4.0
     ports:
       - 9042:9042
+    networks:
+      - go_net
     volumes:
       - ~/apps/cassandra:/var/lib/cassandra
-    networks:
-      - default
     environment:
       - CASSANDRA_CLUSTER_NAME=mycluster
-
   redis:
-    container_name: redis_chat 
-    image: 'redis:7.0.2'
+    container_name: redis_chat
+    image: "redis:7.0.2"
     ports:
-      - "6379:6379" 
+      - "6379:6379"
     networks:
-      - default  
-
+      - go_net
+  api1:
+    container_name: go_chat1
+    build: .
+    ports:
+      - "6300:6300"
+    restart: always
+    environment:
+      SERVERID: "SERVER1"
+      PORT: "6300"
+    depends_on:
+      - redis
+      - cassandra
+    networks:
+      - go_net
+  api2:
+    container_name: go_chat2
+    build: .
+    ports:
+      - "6400:6400"
+    restart: always  
+    environment:
+      SERVERID: "SERVER2"
+      PORT: "6400"
+    depends_on:
+      - redis
+      - cassandra
+    networks:
+      - go_net  
+  api3:
+    container_name: go_chat3
+    build: .
+    ports:
+      - "6500:6500"
+    restart: always  
+    environment:
+      SERVERID: "SERVER3"
+      PORT: "6500"
+    depends_on:
+      - redis
+      - cassandra
+    networks:
+      - go_net  
+  nginx:
+    container_name: nginxproxy
+    restart: always
+    build:
+      context: ./nginx
+    ports:
+      - 80:80
+    depends_on:
+      - api1
+      - api2
+      - api3
+    networks:
+      - go_net
 networks:
-  default:
-    driver: bridge
+  go_net:
