@@ -100,6 +100,7 @@ func ReceiveMessage(conn *websocket.Conn, userID string) {
 				r.GroupMembers = element
 				JsonData, err := json.Marshal(r)
 				utils.CheckErr(err)
+				fmt.Println("redis key", key)
 				Conn.Publish(Ctx, key, JsonData)
 
 			}

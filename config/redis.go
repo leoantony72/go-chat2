@@ -2,6 +2,8 @@ package config
 
 import (
 	"context"
+	"fmt"
+
 	// "fmt"
 	"go/chat/utils"
 
@@ -23,6 +25,7 @@ func NPool() {
 
 func PubSub() {
 	SERVERID := utils.EnvVariable("SERVERID")
+	fmt.Println(SERVERID)
 	subscriber := Conn.Subscribe(Ctx, SERVERID)
 	for {
 		msg, err := subscriber.ReceiveMessage(Ctx)
